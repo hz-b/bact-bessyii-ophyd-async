@@ -1,0 +1,25 @@
+[build-system]
+requires = [ "poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "bact-bessyii-ophyd-async"
+version = "0.0.0"
+description = "BESSY II Ophyd async devices"
+authors = ["Pierre Schnizer",]
+license = "GPL-3.0"
+homepage = "https://github.com/hz-b/bact-bessyii-ophyd-async/"
+documentation = "https://github.com/hz-b/bact-bessyii-ophyd-async/"
+repository = "https://github.com/hz-b/bact-bessyii-ophyd-async.git"
+keywords = []
+
+[tool.poetry.dependencies]
+python = ">=3.7"
+# todo: find out minimum required instance
+ophyd-async  = ">=0.9.0"
+aioca = "*"
+numpy = "*"
+jsons = "*"
+
+[tool.poetry.dev-dependencies]
+pytest-asyncio = "*"
