@@ -30,6 +30,4 @@ class TopUpEngine(EpicsDevice, StandardReadable):
     state      : A[ SignalRW[ToppingUpState] , PvSuffix( "state"    ), Format.UNCACHED_SIGNAL ]
     current    : A[ SignalR[float]           , PvSuffix( "rdCur"    ), Format.UNCACHED_SIGNAL ]
     sb_current : A[ SignalR[float]           , PvSuffix( "rdCurCS"  ), Format.UNCACHED_SIGNAL ]
-    frequency  : A[ SignalR[Frequency]       , PvSuffix( "selTrgSR" ), Format.UNCACHED_SIGNAL ]
-
-
+    frequency  : A[ SignalRW[Frequency]      , PvSuffix( "selTrgSR" ), Format.UNCACHED_SIGNAL ]
