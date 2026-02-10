@@ -1,5 +1,11 @@
 from typing import Annotated as A
-from ophyd_async.core import StandardReadableFormat as Format, StandardReadable, SignalR, SignalRW, SubsetEnum, AsyncStatus
+from ophyd_async.core import (
+    AsyncStatus,
+    StandardReadable,
+    StandardReadableFormat as Format,
+    SignalR,
+    SubsetEnum,
+)
 from ophyd_async.epics.core import EpicsDevice, PvSuffix
 
 
@@ -9,10 +15,10 @@ class DelayState(SubsetEnum):
 
 
 class Delay(EpicsDevice, StandardReadable):
-    '''Delay of kicker pulse to trigger
+    """Delay of kicker pulse to trigger
 
     Diagnostic kicker
-    '''
+    """
 
     # fmt:off
     offset :  A[ SignalR[float]      , PvSuffix("offset"), Format.UNCACHED_SIGNAL ]
@@ -21,7 +27,9 @@ class Delay(EpicsDevice, StandardReadable):
 
     @AsyncStatus.wrap
     async def stage(self):
-        assert await self.switch.get_value() == DelayState.ON, f"{self.name}: delay switch {self.switch} is not active"
+        assert (
+            await self.switch.get_value() == DelayState.ON
+        ), f"{self.name}: delay switch {self.switch} is not active"
         return await super().stage()
 
     @AsyncStatus.wrap
@@ -29,4 +37,11 @@ class Delay(EpicsDevice, StandardReadable):
         return await super().unstage()
 
     async def set(self, value):
+        """
+        Todo:
+            Find out how to correcty override a method that is
+            wrapped with AsyncStatus
+
+            Wait for the task? or do nothing ?
+        """
         return self.offset.set(value)

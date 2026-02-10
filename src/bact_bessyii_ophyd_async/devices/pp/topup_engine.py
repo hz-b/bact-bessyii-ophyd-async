@@ -1,22 +1,21 @@
 import asyncio
 import itertools
-from typing import Annotated as A
 
-from bluesky.protocols import SyncOrAsync
-from ophyd_async.core import SignalR, StandardReadableFormat as Format, AsyncStatus
+from bluesky.protocols import Stoppable, SyncOrAsync
+from ophyd_async.core import AsyncStatus
 
 from ..raw.topup_engine import TopUpEngine as RawTopUpEngine, ToppingUpState, Frequency
-from bluesky.protocols import Stoppable, SyncOrAsync
 
 
 class TopUpEngine(RawTopUpEngine, Stoppable):
-
-    def __init__(self,
-                 *args,
-                 target_current: float,
-                 acceptable_loss: float,
-                 requested_injection_frequency : Frequency,
-                 **kwargs):
+    def __init__(
+        self,
+        *args,
+        target_current: float,
+        acceptable_loss: float,
+        requested_injection_frequency: Frequency,
+        **kwargs,
+    ):
 
         self.target_current = target_current
         self.acceptable_loss = acceptable_loss
@@ -94,20 +93,16 @@ async def monitor_current(current_signal, target_current: float, log):
     for cnt in counter:
         value = await current_signal.get_value()
         if value > target_current:
-            log.warning(f"Topup: switch off")
+            log.warning("Topup: switch off")
             return cnt
 
 
 def reinjection_required(
     target_current: float, acceptable_loss: float, actual_current: float, log
-):
+) -> bool:
     """ """
-    tc = target_current
-    loss = acceptable_loss
-    cur = actual_current
-
-    txt = f"actual current {cur}, range: target {tc} - loss {loss}"
-    if cur >= tc - loss:
+    txt = f"{actual_current=}, range: {target_current=} - {acceptable_loss=}"
+    if actual_current >= target_current - acceptable_loss:
         log.info(txt + ": sufficient")
         return False
     log.warning(txt + ": insufficient")

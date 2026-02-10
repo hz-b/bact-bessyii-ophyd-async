@@ -1,5 +1,11 @@
 from typing import Annotated as A
-from ophyd_async.core import StandardReadableFormat as Format, StandardReadable, SignalR, SignalRW, SubsetEnum
+from ophyd_async.core import (
+    StandardReadableFormat as Format,
+    StandardReadable,
+    SignalR,
+    SignalRW,
+    SubsetEnum,
+)
 from ophyd_async.epics.core import EpicsDevice, PvSuffix
 
 
@@ -13,14 +19,13 @@ class HighVoltageState(SubsetEnum):
     ON = "HV ON"
 
 
-
 class KickerPS(EpicsDevice, StandardReadable):
-    '''Power converter of the kicker
+    """Power converter of the kicker
 
     At least for the diagnostic kicker
 
     HV requires a bit of time to get data
-    '''
+    """
 
     # fmt:off
     powered   :  A[ SignalR[PoweredState]     , PvSuffix("stat1")     , Format.UNCACHED_SIGNAL ]

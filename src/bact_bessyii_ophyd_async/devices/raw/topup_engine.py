@@ -1,9 +1,13 @@
-from enum import Enum
 from typing import Annotated as A
 
 
-from ophyd_async.core import StandardReadableFormat as Format, StandardReadable, SignalR, SignalRW, StrictEnum, \
-    SubsetEnum
+from ophyd_async.core import (
+    StandardReadableFormat as Format,
+    StandardReadable,
+    SignalR,
+    SignalRW,
+    SubsetEnum,
+)
 from ophyd_async.epics.core import EpicsDevice, PvSuffix
 
 
@@ -24,10 +28,17 @@ class Frequency(SubsetEnum):
 
 
 class TopUpEngine(EpicsDevice, StandardReadable):
-    next_injection    : A[ SignalR[float], PvSuffix("estCntDwnS"),  Format.UNCACHED_SIGNAL  ]
-    injection_trigger : A[ SignalR[StTrg], PvSuffix("stTrg"),  Format.UNCACHED_SIGNAL  ]
-    number_of_bunches : A[ SignalR[int], PvSuffix("setMaxNrBunches"),  Format.UNCACHED_SIGNAL ]
-    state      : A[ SignalRW[ToppingUpState] , PvSuffix( "state"    ), Format.UNCACHED_SIGNAL ]
-    current    : A[ SignalR[float]           , PvSuffix( "rdCur"    ), Format.UNCACHED_SIGNAL ]
-    sb_current : A[ SignalR[float]           , PvSuffix( "rdCurCS"  ), Format.UNCACHED_SIGNAL ]
-    frequency  : A[ SignalRW[Frequency]      , PvSuffix( "selTrgSR" ), Format.UNCACHED_SIGNAL ]
+    """
+    Todo:
+        add extra structure to this device (proxy)
+    """
+    # fmt:off
+    next_injection    : A[ SignalR[ float ], PvSuffix("estCntDwnS")      ,  Format.UNCACHED_SIGNAL ]
+    injection_trigger : A[ SignalR[ StTrg ], PvSuffix("stTrg")           ,  Format.UNCACHED_SIGNAL ]
+    number_of_bunches : A[ SignalR[ int   ], PvSuffix("setMaxNrBunches") ,  Format.UNCACHED_SIGNAL ]
+
+    state      : A[ SignalRW [ ToppingUpState ] , PvSuffix( "state"    ), Format.UNCACHED_SIGNAL ]
+    frequency  : A[ SignalRW [ Frequency      ] , PvSuffix( "selTrgSR" ), Format.UNCACHED_SIGNAL ]
+    current    : A[ SignalR  [ float          ] , PvSuffix( "rdCur"    ), Format.UNCACHED_SIGNAL ]
+    sb_current : A[ SignalR  [ float          ] , PvSuffix( "rdCurCS"  ), Format.UNCACHED_SIGNAL ]
+    # fmt:on
