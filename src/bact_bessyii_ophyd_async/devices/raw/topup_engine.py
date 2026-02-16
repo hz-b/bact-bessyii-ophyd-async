@@ -74,11 +74,15 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
 
     # fmt:off
     #: WARNING: don't use this variable directly, but call the set method
-    frq : A[ SignalRW [ Frequency ] , PvSuffix( "selTrgSR" ) , Format.UNCACHED_SIGNAL ]
+    frq  : A[ SignalRW [ Frequency ] , PvSuffix( "selTrgSR"     ) , Format.UNCACHED_SIGNAL ]
+    busy : A[ SignalR  [ StTrg     ] , PvSuffix( "seqTrgSRbusy" ) , Format.UNCACHED_SIGNAL ]
+
     # fmt:on
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        return
+    # Todo: add this check ... e.g. during stage?
         assert callable(self.parent.state.get_value), (
             "I need to check the state of the parent"
             " before I switch frequency,"
@@ -90,10 +94,10 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
     async def set(self, value: T_co) -> AsyncStatus:
         value = Frequency.from_value(value)
         chk = await self.parent.state.get_value()
-        assert chk == ToppingUpState.ON, (
+        assert chk != ToppingUpState.ON, (
             f"{self.__class__.__name__}(name={self.name})"
-            f" injection signaled on by signal {self.injection_status}"
-            f" with value {chk}. Thus not injecting"
+            f" injection signaled on by signal {self.parent.state}"
+            f" with value {chk}. Thus not switching frequency"
         )
         await self.frq.set(value)
 

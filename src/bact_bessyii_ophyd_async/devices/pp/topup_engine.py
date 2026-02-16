@@ -4,7 +4,7 @@ import itertools
 from bluesky.protocols import Stoppable, SyncOrAsync
 from ophyd_async.core import AsyncStatus, AsyncMovable
 
-from ..raw.topup_engine import TopUpEngine as RawTopUpEngine, ToppingUpState
+from ..raw.topup_engine import TopUpEngine as RawTopUpEngine, ToppingUpState, StTrg
 
 
 class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
@@ -62,8 +62,13 @@ class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
             )
             return self.state.set(ToppingUpState.OFF)
 
+        await asyncio.wait_for(
+            frequency_switched(self.frq_switch.busy, self.log), timeout=10.0
+        )
+
         try:
             # Todo: add check that engine can switch!
+
             await self.state.set(ToppingUpState.ON)
             await asyncio.wait_for(
                 monitor_current(self.current, self.target_current, self.log), timeout=60.0
@@ -75,6 +80,16 @@ class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
         return reinjection_required(
             self.target_current, self.acceptable_loss, await self.current.get_value(), self.log
         )
+
+
+
+async def frequency_switched(switch_signal, log):
+    counter = itertools.count()
+    for cnt in counter:
+        value = await switch_signal.get_value()
+        if value == StTrg.INACTIVE:
+            log.info("No frequency switch")
+            return cnt
 
 
 async def monitor_current(current_signal, target_current: float, log):
