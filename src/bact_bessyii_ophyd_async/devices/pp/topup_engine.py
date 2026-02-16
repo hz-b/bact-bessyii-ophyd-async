@@ -2,35 +2,32 @@ import asyncio
 import itertools
 
 from bluesky.protocols import Stoppable, SyncOrAsync
-from ophyd_async.core import AsyncStatus
+from ophyd_async.core import AsyncStatus, AsyncMovable
 
-from ..raw.topup_engine import TopUpEngine as RawTopUpEngine, ToppingUpState, Frequency
+from ..raw.topup_engine import TopUpEngine as RawTopUpEngine, ToppingUpState
 
 
-class TopUpEngine(RawTopUpEngine, Stoppable):
+class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
+    """
+
+    Currently designed to only handle main current
+    """
     def __init__(
         self,
         *args,
         target_current: float,
         acceptable_loss: float,
-        requested_injection_frequency: Frequency,
         **kwargs,
     ):
 
         self.target_current = target_current
         self.acceptable_loss = acceptable_loss
-        self.requested_injection_frequency = Frequency(requested_injection_frequency)
 
         super().__init__(*args, **kwargs)
 
     async def stop(self, success=True) -> SyncOrAsync[None]:
         await self.state.set(ToppingUpState.OFF)
         return None
-
-    # async def reinjection_required(self):
-    #    return await reinjection_required_signal(
-    #        self.target_current, self.acceptable_loss, self.current, self.log
-    #    )
 
     @AsyncStatus.wrap
     async def set(self, value):
@@ -39,17 +36,11 @@ class TopUpEngine(RawTopUpEngine, Stoppable):
         To be prepared for overloading for using an other signal
         """
         return await self.set_using_signal(
-            self.target_current,
-            self.acceptable_loss,
-            self.current,
             value,
         )
 
     async def set_using_signal(
         self,
-        target_current: float,
-        acceptable_loss: float,
-        current_signal,
         value: ToppingUpState,
     ):
         value = ToppingUpState(value)
@@ -57,35 +48,33 @@ class TopUpEngine(RawTopUpEngine, Stoppable):
             self.log.warning(
                 f"{self.__class__.__name__}: no reinjection requested"
                 f" topup state {value}"
-                f" current signal {current_signal.name}"
+                f" current signal {self.current.name}"
             )
             return await self.state.set(ToppingUpState.OFF)
 
         assert value
 
-        if not reinjection_required(
-            target_current, acceptable_loss, await current_signal.get_value(), self.log
-        ):
+        if not await self.reinjection_required():
             self.log.warning(
                 f"{self.__class__.__name__}: no reinjection required"
                 f" topup state {value}"
-                f" current signal {current_signal.name}"
+                f" current signal {self.current.name}"
             )
             return self.state.set(ToppingUpState.OFF)
 
         try:
-            if await self.state.get_value() != ToppingUpState.OFF:
-                await self.state.set(ToppingUpState.OFF)
-            await self.frequency.set(self.requested_injection_frequency)
-            # todo: wait until the TOPUP engine has switched
-            #       find out which variable should be checked!
-            await asyncio.sleep(10.0)
+            # Todo: add check that engine can switch!
             await self.state.set(ToppingUpState.ON)
             await asyncio.wait_for(
-                monitor_current(current_signal, target_current, self.log), timeout=60.0
+                monitor_current(self.current, self.target_current, self.log), timeout=60.0
             )
         finally:
             await self.state.set(ToppingUpState.OFF)
+
+    async def reinjection_required(self) -> bool:
+        return reinjection_required(
+            self.target_current, self.acceptable_loss, await self.current.get_value(), self.log
+        )
 
 
 async def monitor_current(current_signal, target_current: float, log):
