@@ -89,16 +89,42 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
             " but I can not access the parent's state signal"
         )
 
-
     @AsyncStatus.wrap
     async def set(self, value: T_co) -> AsyncStatus:
+        """
+        Todo:
+            add a timeout that the value changed
+        """
         value = Frequency.from_value(value)
-        chk = await self.parent.state.get_value()
-        assert chk != ToppingUpState.ON, (
-            f"{self.__class__.__name__}(name={self.name})"
-            f" injection signaled on by signal {self.parent.state}"
-            f" with value {chk}. Thus not switching frequency"
-        )
+        for cnt in range(2):
+            busy = await self.busy.get_value()
+            if busy == StTrg.INACTIVE:
+                self.log.warning("topup engine not busy")
+                break
+            else:
+                self.log.warning("topup engine still busy")
+        else:
+            raise AssertionError(
+                f"{self.__class__.__name__}(name={self.name})"
+                f" injection signaled as busy by {self.busy}"
+                f" with value {busy} (at round {cnt})."
+                " Thus not switching frequency"
+            )
+        # Todo: only display this message if the busy message
+        #       above was shown
+        self.log.warning("topup engine not busy any more")
+
+        for cnt in range(2):
+            chk = await self.parent.state.get_value()
+            if chk == ToppingUpState.OFF:
+                break
+        else:
+            raise AssertionError(
+                f"{self.__class__.__name__}(name={self.name})"
+                f" injection signaled on by signal {self.parent.state}"
+                f" with value {chk} (at round {cnt})."
+                " Thus not switching frequency"
+            )
         await self.frq.set(value)
 
 

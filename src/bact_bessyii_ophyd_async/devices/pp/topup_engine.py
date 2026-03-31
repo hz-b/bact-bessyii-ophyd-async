@@ -88,7 +88,7 @@ async def frequency_switched(switch_signal, log):
     for cnt in counter:
         value = await switch_signal.get_value()
         if value == StTrg.INACTIVE:
-            log.info("No frequency switch")
+            log.info("No frequency switch active (any more)")
             return cnt
 
 
