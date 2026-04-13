@@ -1,6 +1,14 @@
+"""
+
+Todo:
+   clear dependency interdependence of frequency and
+   top up raw/pp
+"""
+import asyncio
 import logging
 from typing import Annotated as A, Union
 from math import isclose
+import time
 
 from bluesky.protocols import T_co
 from ophyd_async.core import (
@@ -81,6 +89,7 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._delay_after_last_swtich = 2.0
         return
     # Todo: add this check ... e.g. during stage?
         assert callable(self.parent.state.get_value), (
@@ -125,13 +134,30 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
                 f" with value {chk} (at round {cnt})."
                 " Thus not switching frequency"
             )
+
+        # only switch the frequency when the last off has been switched
+        # at least delay_after_last_witch ago
+        ts = self.parent.get_timestamp_from_last_off()
+        delay = get_remaining_delay(ts, self._delay_after_last_swtich)
+        if delay:
+            self.log.warning(
+                "%s name+%sfrequency switch delayed by %.2f seconds",
+                self.__class__.__name__,
+                self.name,
+                delay
+            )
+            await asyncio.sleep(delay)
+
         await self.frq.set(value)
+
 
 
 class TopUpEngine(EpicsDevice, StandardReadable):
     """
     Todo:
         add extra structure to this device (proxy)
+
+        review structure of devices ... consider using dependency injection for frequency switch
     """
 
     # fmt:off
@@ -141,13 +167,26 @@ class TopUpEngine(EpicsDevice, StandardReadable):
     state      : A[ SignalRW [ ToppingUpState ] , PvSuffix( "state"           ), Format.UNCACHED_SIGNAL ]
     current    : A[ SignalR  [ float          ] , PvSuffix( "rdCur"           ), Format.UNCACHED_SIGNAL ]
     sb_current : A[ SignalR  [ float          ] , PvSuffix( "rdCurCS"         ), Format.UNCACHED_SIGNAL ]
-    n_bunches  : A[ SignalR  [ int            ] , PvSuffix( "setMaxNrBunches" ), Format.UNCACHED_SIGNAL ]
+    n_bunches  : A[ SignalRW [ int            ] , PvSuffix( "setMaxNrBunches" ), Format.UNCACHED_SIGNAL ]
     # fmt:on
 
     def __init__(self, *args, **kwargs):
         with self.add_children_as_readables():
             self.frq_switch = FrequencySwitch(*args, **kwargs)
         super().__init__(*args, **kwargs)
+        self._timestamp_last_switch_off = None
+
+    def get_timestamp_from_last_off(self) -> float:
+        raise NotImplementedError("only availble if derived mode is used")
+
+
+def get_remaining_delay(timestamp: float, necessary_delay: float) -> float:
+    """check how long it was already delayed
+    """
+    now = time.time()
+    dt = now - timestamp
+    delay = necessary_delay - dt
+    return max(delay, 0)
 
 
 __all__ = ["TopUpEngine", "ToppingUpState", "Frequency"]

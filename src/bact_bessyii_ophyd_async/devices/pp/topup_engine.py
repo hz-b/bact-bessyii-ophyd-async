@@ -1,5 +1,6 @@
 import asyncio
 import itertools
+import time
 
 from bluesky.protocols import Stoppable, SyncOrAsync
 from ophyd_async.core import AsyncStatus, AsyncMovable
@@ -25,9 +26,22 @@ class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
 
         super().__init__(*args, **kwargs)
 
+
     async def stop(self, success=True) -> SyncOrAsync[None]:
-        await self.state.set(ToppingUpState.OFF)
-        return None
+        await self.set_topping_up_off()
+
+    async def set_topping_up_off(self):
+        state = await self.state.get_value()
+        st = self.state.set(ToppingUpState.OFF)
+
+        if self._timestamp_last_switch_off is None:
+            self.log.warning("Last switch off timestamp was None, thus recording current time")
+            self._timestamp_last_switch_off = time.time()
+
+        if state == ToppingUpState.ON:
+            self.log.warning("topping up state was %s thus recording switch time", repr(state))
+            self._timestamp_last_switch_off = time.time()
+        await st
 
     @AsyncStatus.wrap
     async def set(self, value):
@@ -39,20 +53,20 @@ class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
             value,
         )
 
+
     async def set_using_signal(
         self,
         value: ToppingUpState,
     ):
         value = ToppingUpState(value)
-        if not value:
+        if value == ToppingUpState.OFF:
             self.log.warning(
                 f"{self.__class__.__name__}: no reinjection requested"
                 f" topup state {value}"
                 f" current signal {self.current.name}"
             )
-            return await self.state.set(ToppingUpState.OFF)
-
-        assert value
+            await self.set_topping_up_off()
+            return
 
         if not await self.reinjection_required():
             self.log.warning(
@@ -60,7 +74,8 @@ class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
                 f" topup state {value}"
                 f" current signal {self.current.name}"
             )
-            return self.state.set(ToppingUpState.OFF)
+            await self.set_topping_up_off()
+            return
 
         await asyncio.wait_for(
             frequency_switched(self.frq_switch.busy, self.log), timeout=10.0
@@ -68,13 +83,20 @@ class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
 
         try:
             # Todo: add check that engine can switch!
-
-            await self.state.set(ToppingUpState.ON)
+            st = self.state.set(ToppingUpState.ON)
+            self._timestamp_last_switch_off = None
+            await st
             await asyncio.wait_for(
                 monitor_current(self.current, self.target_current, self.log), timeout=60.0
             )
         finally:
-            await self.state.set(ToppingUpState.OFF)
+            await self.set_topping_up_off()
+
+    def get_timestamp_from_last_off(self) -> float:
+        if self._timestamp_last_switch_off is None:
+            self.log.warning("Using current time as timestamp for last switch as it was not defined")
+            self._timestamp_last_switch_off = time.time()
+        return self._timestamp_last_switch_off
 
     async def reinjection_required(self) -> bool:
         return reinjection_required(
