@@ -21,7 +21,7 @@ from ophyd_async.core import (
     AsyncStatus,
 )
 from ophyd_async.epics.core import EpicsDevice, PvSuffix
-from ...utils.record_timestamp import RecordTimeStamp
+from ...utils.cooldown import Cooldown
 
 logger = logging.getLogger("bact-bessyii-ophyd-async")
 
@@ -139,8 +139,7 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
 
         # only switch the frequency when the last off has been switched
         # at least delay_after_last_witch ago
-        ts = self.parent.get_timestamp_from_last_off()
-        delay = get_remaining_delay(ts, self._delay_after_last_swtich)
+        delay = self.parent.timestamped_topup_off.remaining()
         if delay:
             self.log.warning(
                 "%s name+%sfrequency switch delayed by %.2f seconds",
@@ -149,7 +148,14 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
                 delay
             )
             await asyncio.sleep(delay)
-
+        else:
+            self.log.warning(
+                "%s name+%sfrequency switch no dealy! by %.2f seconds",
+                self.__class__.__name__,
+                self.name,
+                delay
+            )
+            
         await self.frq.set(value)
 
 
@@ -175,7 +181,7 @@ class TopUpEngine(EpicsDevice, StandardReadable):
         with self.add_children_as_readables():
             self.frq_switch = FrequencySwitch(*args, **kwargs)
         super().__init__(*args, **kwargs)
-        self.timestamped_topup_off = RecordTimeStamp()
+        self.timestamped_topup_off = Cooldown(name="top up last switch", delay=2.0)
 
     def get_timestamp_from_last_off(self) -> float:
         raise NotImplementedError("only availble if derived mode is used")
