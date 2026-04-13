@@ -21,6 +21,7 @@ from ophyd_async.core import (
     AsyncStatus,
 )
 from ophyd_async.epics.core import EpicsDevice, PvSuffix
+from ...utils.record_timestamp import RecordTimeStamp
 
 logger = logging.getLogger("bact-bessyii-ophyd-async")
 
@@ -91,6 +92,7 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
         super().__init__(*args, **kwargs)
         self._delay_after_last_swtich = 2.0
         return
+    
     # Todo: add this check ... e.g. during stage?
         assert callable(self.parent.state.get_value), (
             "I need to check the state of the parent"
@@ -151,7 +153,6 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
         await self.frq.set(value)
 
 
-
 class TopUpEngine(EpicsDevice, StandardReadable):
     """
     Todo:
@@ -174,7 +175,7 @@ class TopUpEngine(EpicsDevice, StandardReadable):
         with self.add_children_as_readables():
             self.frq_switch = FrequencySwitch(*args, **kwargs)
         super().__init__(*args, **kwargs)
-        self._timestamp_last_switch_off = None
+        self.timestamped_topup_off = RecordTimeStamp()
 
     def get_timestamp_from_last_off(self) -> float:
         raise NotImplementedError("only availble if derived mode is used")

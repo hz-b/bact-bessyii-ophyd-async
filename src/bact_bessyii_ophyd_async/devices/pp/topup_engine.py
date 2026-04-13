@@ -34,15 +34,21 @@ class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
         state = await self.state.get_value()
         st = self.state.set(ToppingUpState.OFF)
 
-        if self._timestamp_last_switch_off is None:
+        if self.timestamped_topup_off is None:
             self.log.warning("Last switch off timestamp was None, thus recording current time")
-            self._timestamp_last_switch_off = time.time()
+            self.timestamped_topup_off.record()
 
         if state == ToppingUpState.ON:
             self.log.warning("topping up state was %s thus recording switch time", repr(state))
-            self._timestamp_last_switch_off = time.time()
+            self.timestamped_topup_off.record()
         await st
 
+    def get_timestamp_from_last_off(self) -> float:
+        if not self.timestamped_topup_off.valid():
+            self.timestamped_topup_off.record()        
+            self.log.warning("Using current time as timestamp for last switch as it was not defined")
+        return self.timestamped_topup_off.elapsed()
+        
     @AsyncStatus.wrap
     async def set(self, value):
         """
@@ -84,19 +90,13 @@ class TopUpEngine(RawTopUpEngine, AsyncMovable, Stoppable):
         try:
             # Todo: add check that engine can switch!
             st = self.state.set(ToppingUpState.ON)
-            self._timestamp_last_switch_off = None
+            self.timestamped_topup_off.reset()
             await st
             await asyncio.wait_for(
                 monitor_current(self.current, self.target_current, self.log), timeout=60.0
             )
         finally:
             await self.set_topping_up_off()
-
-    def get_timestamp_from_last_off(self) -> float:
-        if self._timestamp_last_switch_off is None:
-            self.log.warning("Using current time as timestamp for last switch as it was not defined")
-            self._timestamp_last_switch_off = time.time()
-        return self._timestamp_last_switch_off
 
     async def reinjection_required(self) -> bool:
         return reinjection_required(
