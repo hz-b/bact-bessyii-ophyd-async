@@ -1,0 +1,91 @@
+from ophyd_async.core import AsyncMovable, AsyncStatus, StandardReadable
+from ophyd_async.epics.core import EpicsDevice
+
+
+from ...utils.cooldown import Cooldown
+from .controller import TopUpController
+from .engine import RawTopUpEngine
+from .enums import ToppingUpState, Frequency
+from .policy import TopUpPolicy
+
+
+class TopUpProxy(AsyncMovable):
+    def __init__(self, controller: TopUpController):
+        self.controller = controller
+
+    @AsyncStatus.wrap
+    async def set(self, value: ToppingUpState):
+        value = ToppingUpState(value)
+
+        if value == ToppingUpState.ON:
+            await self.controller.start()
+        else:
+            await self.controller.stop()
+
+
+class FrequencyProxy(AsyncMovable):
+    def __init__(self, controller: TopUpController):
+        self.controller = controller
+
+    @AsyncStatus.wrap
+    async def set(self, value: Frequency):
+        await self.controller.set_frequency(value)
+        
+
+class TopUpSystem(StandardReadable, EpicsDevice):
+    """
+    High-level system device combining:
+    - EPICS signals (engine)
+    - control logic (controller)
+    - AsyncMovable interfaces (proxies)
+    """
+
+    def __init__(
+        self,
+        *args,
+        target_current: float,
+        acceptable_loss: float,
+        cooldown_time: float = 2.0,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        # -------------------------
+        # Device layer
+        # -------------------------
+        with self.add_children_as_readables():
+            self.engine = RawTopUpEngine(*args, **kwargs)
+
+        # -------------------------
+        # Logic layer
+        # -------------------------
+        self.controller = TopUpController(
+            engine=self.engine,
+            policy=TopUpPolicy(
+                target_current=target_current,
+                acceptable_loss=acceptable_loss,
+            ),
+            cooldown=Cooldown(name="topup off", delay=cooldown_time),
+            log=self.log,
+        )
+
+        # -------------------------
+        # Control surface (IMPORTANT)
+        # -------------------------
+        self.topup = TopUpProxy(self.controller)
+        self.frequency = FrequencyProxy(self.controller)
+        
+        async def stage(self) -> None:
+            await self.engine.stage()
+
+        async def unstage(self) -> None:
+            await self.engine.unstage()
+
+        async def read(self):
+            return await self.engine.read()
+
+        async def stop(self, success=True):
+            st = self.engine.stop()
+            self.cooldown.reset()
+            await st
+
