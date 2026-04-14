@@ -1,3 +1,4 @@
+from bluesky.protocols import Stoppable, Stageable
 from ophyd_async.core import AsyncMovable, AsyncStatus, StandardReadable
 from ophyd_async.epics.core import EpicsDevice
 
@@ -32,7 +33,7 @@ class FrequencyProxy(AsyncMovable):
         await self.controller.set_frequency(value)
 
 
-class TopUpSystem(EpicsDevice, StandardReadable):
+class TopUpSystem(EpicsDevice, StandardReadable, Stoppable, Stageable):
     """
     High-level system device combining:
     - EPICS signals (engine)
@@ -52,39 +53,36 @@ class TopUpSystem(EpicsDevice, StandardReadable):
 
         # -------------------------
         # Device layer
-        # -------------------------
         with self.add_children_as_readables():
             self.engine = RawTopUpEngine(*args, **kwargs)
-
         # -------------------------
         # Logic layer
-        # -------------------------
+        self.cooldown = Cooldown(name="topup off", delay=cooldown_time)
         self.controller = TopUpController(
             engine=self.engine,
             policy=TopUpPolicy(
                 target_current=target_current,
                 acceptable_loss=acceptable_loss,
             ),
-            cooldown=Cooldown(name="topup off", delay=cooldown_time),
+            cooldown=cooldown_time,
             log=self.log,
         )
-
         # -------------------------
         # Control surface
-        # -------------------------
         self.topup = TopUpProxy(self.controller)
         self.frequency = FrequencyProxy(self.controller)
+        # -------------------------
 
-        async def stage(self) -> None:
-            await self.engine.stage()
+    async def stage(self) -> None:
+        await self.engine.stage()
 
-        async def unstage(self) -> None:
-            await self.engine.unstage()
+    async def unstage(self) -> None:
+        await self.engine.unstage()
 
-        async def read(self):
-            return await self.engine.read()
+    async def read(self):
+        return await self.engine.read()
 
-        async def stop(self, success=True):
-            st = self.engine.stop()
-            self.cooldown.reset()
-            await st
+    async def stop(self, success=True):
+        st = self.engine.stop()
+        self.cooldown.reset()
+        await st

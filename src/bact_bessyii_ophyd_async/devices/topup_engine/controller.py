@@ -4,7 +4,10 @@ import asyncio
 from contextlib import suppress
 from typing import Optional
 
-from ophyd_async.core import AsyncStatus
+from .engine import RawTopUpEngine
+from .enums import Frequency, ToppingUpState, StTrg
+from .policy import TopUpPolicy
+from ...utils.cooldown import Cooldown
 
 
 class TopUpController:
@@ -15,20 +18,16 @@ class TopUpController:
         policy: TopUpPolicy,
         cooldown: Cooldown,
         log,
-        busy_poll_interval: float = 0.1,
-        current_poll_interval: float = 0.2,
-        busy_timeout: float = 10.0,
-        monitor_timeout: float = 60.0,
+        state_switch_timeout: float = 10.0,
+        current_topping_up_timeout: float = 60.0,
     ) -> None:
         self.engine = engine
         self.policy = policy
         self.cooldown = cooldown
         self.log = log
 
-        self.busy_poll_interval = busy_poll_interval
-        self.current_poll_interval = current_poll_interval
-        self.busy_timeout = busy_timeout
-        self.monitor_timeout = monitor_timeout
+        self.state_switch_timeout = state_switch_timeout
+        self.current_topping_up_timeout = current_topping_up_timeout
 
         self._task: Optional[asyncio.Task] = None
 
@@ -85,7 +84,7 @@ class TopUpController:
             try:
                 await asyncio.wait_for(
                     self._monitor_current(),
-                    timeout=self.monitor_timeout,
+                    timeout=self.current_topping_up_timeout,
                 )
             except asyncio.TimeoutError:
                 self.log.warning("Monitoring timed out")
@@ -102,19 +101,25 @@ class TopUpController:
     # =========================================================
 
     async def _wait_until_not_busy(self) -> None:
-        async def _loop():
-            while True:
+        async def loop():
+            max_loops = 3
+            for cnt in range(max_loops):
+                # waits for updates ... thus no need to sleep below
                 busy = await self.engine.frq_switch.busy.get_value()
                 if busy == StTrg.INACTIVE:
                     return
-                await asyncio.sleep(self.busy_poll_interval)
+            else:
+                raise ValueError(
+                    f"{self.engine.frq_switch.busy} did not get inactive"
+                    f" within {max_loops} loops"
+                )
 
-        await asyncio.wait_for(_loop(), timeout=self.busy_timeout)
+        await asyncio.wait_for(loop(), timeout=self.state_switch_timeout)
 
     async def _switch_on(self) -> None:
         self.log.info("Switching ON")
         await self.engine.state.set(ToppingUpState.ON)
-        self.cooldown.record()
+        self.cooldown.reset()
 
     async def _switch_off(self) -> None:
         self.log.info("Switching OFF")
@@ -132,5 +137,3 @@ class TopUpController:
             if not self.policy.reinjection_required(value):
                 self.log.info("Target reached (%.3f)", value)
                 return
-
-            await asyncio.sleep(self.current_poll_interval)

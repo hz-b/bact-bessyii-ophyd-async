@@ -1,8 +1,10 @@
 # test_frequency.py
 import pytest
 
+from bact_bessyii_ophyd_async.devices.topup_engine.enums import Frequency
+
+
 # Replace 'your_module' with the real module path where Frequency is defined.
-from bact_bessyii_ophyd_async.devices.raw.topup_engine import Frequency
 
 
 @pytest.mark.parametrize(

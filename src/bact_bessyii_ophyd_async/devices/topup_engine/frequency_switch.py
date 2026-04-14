@@ -1,6 +1,13 @@
 from typing import Annotated as A, TypeVar
 
-from ophyd_async.core import AsyncMovable, AsyncStatus, SignalR, SignalRW, StandardReadable, StandardReadableFormat as Format
+from ophyd_async.core import (
+    AsyncMovable,
+    AsyncStatus,
+    SignalR,
+    SignalRW,
+    StandardReadable,
+    StandardReadableFormat as Format,
+)
 from ophyd_async.epics.core import EpicsDevice, PvSuffix
 
 from .enums import Frequency, StTrg
