@@ -32,4 +32,4 @@ async def test_system_startup():
     assert len(r) == 6
     await topup.unstage()
     assert callable(topup.frequency.set)
-    assert callable(topup.topup.set)
+    assert callable(topup.state.set)

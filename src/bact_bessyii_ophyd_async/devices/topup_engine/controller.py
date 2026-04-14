@@ -53,6 +53,9 @@ class TopUpController:
 
         await self._safe_switch_off()
 
+    async def wait_for_toppingup_to_finish(self):
+        await self._task
+
     async def set_frequency(self, value: Frequency) -> None:
         freq = Frequency.from_value(value)
 

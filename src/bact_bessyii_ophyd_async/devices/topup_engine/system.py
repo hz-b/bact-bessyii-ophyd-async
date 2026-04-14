@@ -10,7 +10,22 @@ from .enums import ToppingUpState, Frequency
 from .policy import TopUpPolicy
 
 
-class TopUpProxy(AsyncMovable):
+class ToppingUpToTargetCurrent(AsyncMovable):
+    def __init__(self, controller: TopUpController):
+        self.controller = controller
+
+    @AsyncStatus.wrap
+    async def set(self, value: ToppingUpState):
+        value = ToppingUpState(value)
+
+        if value == ToppingUpState.ON:
+            await self.controller.start()
+            await self.controller.wait_for_toppingup_to_finish()
+        else:
+            await self.controller.stop()
+
+
+class TopUpStateProxy(AsyncMovable):
     def __init__(self, controller: TopUpController):
         self.controller = controller
 
@@ -69,8 +84,9 @@ class TopUpSystem(EpicsDevice, StandardReadable, Stoppable, Stageable):
         )
         # -------------------------
         # Control surface
-        self.topup = TopUpProxy(self.controller)
+        self.state = TopUpStateProxy(self.controller)
         self.frequency = FrequencyProxy(self.controller)
+        self.to_target = ToppingUpToTargetCurrent(self.controller)
         # -------------------------
 
     async def stage(self) -> None:

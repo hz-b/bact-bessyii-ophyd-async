@@ -20,7 +20,7 @@ async def main():
     # frequency switch to 0.5 Hz
     await topup.frequency.set(0.5)
     # switch topup state off
-    await topup.topup.set(ToppingUpState.OFF)
+    await topup.state.set(ToppingUpState.OFF)
 
 if __name__ == "__main__":
     asyncio.run(main())
