@@ -30,9 +30,9 @@ class FrequencyProxy(AsyncMovable):
     @AsyncStatus.wrap
     async def set(self, value: Frequency):
         await self.controller.set_frequency(value)
-        
 
-class TopUpSystem(StandardReadable, EpicsDevice):
+
+class TopUpSystem(EpicsDevice, StandardReadable):
     """
     High-level system device combining:
     - EPICS signals (engine)
@@ -70,11 +70,11 @@ class TopUpSystem(StandardReadable, EpicsDevice):
         )
 
         # -------------------------
-        # Control surface (IMPORTANT)
+        # Control surface
         # -------------------------
         self.topup = TopUpProxy(self.controller)
         self.frequency = FrequencyProxy(self.controller)
-        
+
         async def stage(self) -> None:
             await self.engine.stage()
 
@@ -88,4 +88,3 @@ class TopUpSystem(StandardReadable, EpicsDevice):
             st = self.engine.stop()
             self.cooldown.reset()
             await st
-

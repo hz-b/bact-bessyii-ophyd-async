@@ -177,10 +177,10 @@ class TopUpEngine(EpicsDevice, StandardReadable):
     n_bunches  : A[ SignalRW [ int            ] , PvSuffix( "setMaxNrBunches" ), Format.UNCACHED_SIGNAL ]
     # fmt:on
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, name: str="topup", **kwargs):
         with self.add_children_as_readables():
             self.frq_switch = FrequencySwitch(*args, **kwargs)
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, name=name, **kwargs)
         self.timestamped_topup_off = Cooldown(name="top up last switch", delay=2.0)
 
     def get_timestamp_from_last_off(self) -> float:
