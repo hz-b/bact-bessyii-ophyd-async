@@ -137,3 +137,6 @@ class TopUpController:
             if not self.policy.reinjection_required(value):
                 self.log.info("Target reached (%.3f)", value)
                 return
+
+
+__all__ = ["TopUpController"]

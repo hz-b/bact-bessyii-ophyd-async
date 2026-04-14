@@ -8,3 +8,6 @@ class TopUpPolicy:
 
     def reinjection_required(self, actual_current: float) -> bool:
         return actual_current < (self.target_current - self.acceptable_loss)
+
+
+__all__ = ["TopUpPolicy"]

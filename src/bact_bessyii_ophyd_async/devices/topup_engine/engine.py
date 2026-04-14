@@ -26,3 +26,6 @@ class RawTopUpEngine(EpicsDevice, StandardReadable):
         with self.add_children_as_readables():
             self.frq_switch = FrequencySwitch(*args, **kwargs)
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["RawTopUpEngine"]

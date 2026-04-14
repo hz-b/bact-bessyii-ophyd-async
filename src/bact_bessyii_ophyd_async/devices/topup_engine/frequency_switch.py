@@ -23,3 +23,6 @@ class FrequencySwitch(EpicsDevice, StandardReadable, AsyncMovable):
     async def set(self, value: T_co) -> AsyncStatus:
         freq = Frequency.from_value(value)
         await self.frq.set(freq)
+
+
+__all__ = ["FrequencySwitch"]

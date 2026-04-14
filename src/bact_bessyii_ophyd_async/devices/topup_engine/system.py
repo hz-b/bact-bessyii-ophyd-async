@@ -86,3 +86,6 @@ class TopUpSystem(EpicsDevice, StandardReadable, Stoppable, Stageable):
         st = self.engine.stop()
         self.cooldown.reset()
         await st
+
+
+__all__ = ["TopUpSystem"]
