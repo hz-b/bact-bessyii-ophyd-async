@@ -64,7 +64,7 @@ class TopUpSystem(EpicsDevice, StandardReadable, Stoppable, Stageable):
                 target_current=target_current,
                 acceptable_loss=acceptable_loss,
             ),
-            cooldown=cooldown_time,
+            cooldown=self.cooldown,
             log=self.log,
         )
         # -------------------------
