@@ -11,8 +11,10 @@ from .policy import TopUpPolicy
 
 
 class ToppingUpToTargetCurrent(AsyncMovable):
-    def __init__(self, controller: TopUpController):
+    def __init__(self, *, controller: TopUpController, name:str, parent):
         self.controller = controller
+        self.name = name
+        self.parent = parent
 
     @AsyncStatus.wrap
     async def set(self, value: ToppingUpState):
@@ -26,8 +28,10 @@ class ToppingUpToTargetCurrent(AsyncMovable):
 
 
 class TopUpStateProxy(AsyncMovable):
-    def __init__(self, controller: TopUpController):
+    def __init__(self, controller: TopUpController, name, parent):
         self.controller = controller
+        self.name = name
+        self.parent = parent
 
     @AsyncStatus.wrap
     async def set(self, value: ToppingUpState):
@@ -40,8 +44,10 @@ class TopUpStateProxy(AsyncMovable):
 
 
 class FrequencyProxy(AsyncMovable):
-    def __init__(self, controller: TopUpController):
+    def __init__(self, *, controller: TopUpController, name:str, parent):
         self.controller = controller
+        self.name = name + "-freq"
+        self.parent = parent
 
     @AsyncStatus.wrap
     async def set(self, value: Frequency):
@@ -59,12 +65,13 @@ class TopUpSystem(EpicsDevice, StandardReadable, Stoppable, Stageable):
     def __init__(
         self,
         *args,
+        name:str,
         target_current: float,
         acceptable_loss: float,
         cooldown_time: float = 2.0,
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, name=name, **kwargs)
 
         # -------------------------
         # Device layer
@@ -84,14 +91,16 @@ class TopUpSystem(EpicsDevice, StandardReadable, Stoppable, Stageable):
         )
         # -------------------------
         # Control surface
-        self.state = TopUpStateProxy(self.controller)
-        self.frequency = FrequencyProxy(self.controller)
-        self.to_target = ToppingUpToTargetCurrent(self.controller)
+        self.state = TopUpStateProxy(controller=self.controller, name=name + "-state", parent=self)
+        self.frequency = FrequencyProxy(controller=self.controller, name=name + "-frq_sw", parent=self)
+        self.to_target = ToppingUpToTargetCurrent(controller=self.controller, name=name + "-to_tgt", parent=self)
         # -------------------------
 
+    @AsyncStatus.wrap
     async def stage(self) -> None:
         await self.engine.stage()
 
+    @AsyncStatus.wrap
     async def unstage(self) -> None:
         await self.engine.unstage()
 
